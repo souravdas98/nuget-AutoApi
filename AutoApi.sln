@@ -1,8 +1,13 @@
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoApi", "AutoApi\AutoApi.csproj", "{3BA3050F-534D-540F-EC4A-289E5B257E57}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EF4D4C64-C1BD-6EE2-5F74-5104ACC51DCF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoApi.Core.Tests", "AutoApi\tests\AutoApi.Core.Tests\AutoApi.Core.Tests.csproj", "{4A90B2B7-C073-4476-8348-BE91084CCCE4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,9 +19,16 @@ Global
 		{3BA3050F-534D-540F-EC4A-289E5B257E57}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3BA3050F-534D-540F-EC4A-289E5B257E57}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3BA3050F-534D-540F-EC4A-289E5B257E57}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A90B2B7-C073-4476-8348-BE91084CCCE4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A90B2B7-C073-4476-8348-BE91084CCCE4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A90B2B7-C073-4476-8348-BE91084CCCE4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A90B2B7-C073-4476-8348-BE91084CCCE4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4A90B2B7-C073-4476-8348-BE91084CCCE4} = {EF4D4C64-C1BD-6EE2-5F74-5104ACC51DCF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8A13238E-790C-48E2-9463-A1F50225F57E}
