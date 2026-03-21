@@ -154,7 +154,7 @@ jobs:
   #         reporter: dotnet-trx
 
   # ──────────────────────────────────────────────────────────────────────────
-  # JOB 4 · Pack — produce .nupkg + .snupkg
+  # JOB 4 · Pack — produce .nupkg + .snupkg 
   # ──────────────────────────────────────────────────────────────────────────
   pack:
     name: Pack
