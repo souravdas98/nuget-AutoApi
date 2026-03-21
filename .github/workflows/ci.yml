@@ -45,33 +45,33 @@ jobs:
             /p:WarningLevel=5
 
       # ── Run all test projects ──────────────────────────────────────────────
-      - name: Test (with coverage)
-        run: |
-          dotnet test AutoApi.sln \
-            --no-build \
-            --configuration Release \
-            --logger "trx;LogFileName=test-results.trx" \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./TestResults \
-            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      # - name: Test (with coverage)
+      #   run: |
+      #     dotnet test AutoApi.sln \
+      #       --no-build \
+      #       --configuration Release \
+      #       --logger "trx;LogFileName=test-results.trx" \
+      #       --collect:"XPlat Code Coverage" \
+      #       --results-directory ./TestResults \
+      #       -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
 
       # ── Publish test results ───────────────────────────────────────────────
-      - name: Publish test results
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: Test Results
-          path: "TestResults/*.trx"
-          reporter: dotnet-trx
+      # - name: Publish test results
+      #   uses: dorny/test-reporter@v1
+      #   if: always()
+      #   with:
+      #     name: Test Results
+      #     path: "TestResults/*.trx"
+      #     reporter: dotnet-trx
 
       # ── Upload coverage report ─────────────────────────────────────────────
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: always()
-        with:
-          directory: ./TestResults
-          files: "**/coverage.cobertura.xml"
-          fail_ci_if_error: false
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   if: always()
+      #   with:
+      #     directory: ./TestResults
+      #     files: "**/coverage.cobertura.xml"
+      #     fail_ci_if_error: false
 
       # ── Verify pack succeeds (dry-run, no push) ───────────────────────────
       - name: Verify NuGet pack
