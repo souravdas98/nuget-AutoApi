@@ -1,113 +1,234 @@
 name: Release to NuGet
 
+# ── Triggers ────────────────────────────────────────────────────────────────
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"        # v1.2.3
-      - "v[0-9]+.[0-9]+.[0-9]+-*"      # v1.2.3-beta.1
+      - "v[0-9]+.[0-9]+.[0-9]+"        # stable  → v1.2.3
+      - "v[0-9]+.[0-9]+.[0-9]+-*"      # pre-release → v1.2.3-beta.1
 
   workflow_dispatch:
     inputs:
       version:
-        description: "Package version to publish (e.g. 1.2.3 or 1.2.3-beta.1)"
+        description: "Package version (e.g. 1.2.3 or 1.2.3-beta.1)"
         required: true
         type: string
       dry_run:
-        description: "Dry run — build & pack but do NOT push to NuGet"
+        description: "Dry run – build & pack but do NOT push to NuGet"
         required: false
         default: "false"
         type: boolean
 
+# ── Never cancel an in-flight release ───────────────────────────────────────
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: false            # never cancel an in-flight release
+  cancel-in-progress: false
 
+# ── Shared env ───────────────────────────────────────────────────────────────
 env:
-  DOTNET_VERSION: "8.0.x"
-  DOTNET_NOLOGO: true
+  DOTNET_VERSION:              "8.0.x"
+  DOTNET_NOLOGO:               true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  PROJECT_PATH: "AutoApi/AutoApi.csproj"
-  OUTPUT_DIR: "./artifacts"
+  PROJECT_PATH:                "AutoApi/AutoApi.csproj"
+  SOLUTION_PATH:               "AutoApi.sln"
+  OUTPUT_DIR:                  "./artifacts"
 
+# ════════════════════════════════════════════════════════════════════════════
 jobs:
-  # ─────────────────────────────────────────────────────────────────
-  release:
-    name: Pack & Publish
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 1 · Validate inputs & resolve the version
+  # ──────────────────────────────────────────────────────────────────────────
+  validate:
+    name: Validate version
     runs-on: ubuntu-latest
-    permissions:
-      contents: write        # needed to create GitHub Releases
+    outputs:
+      version:    ${{ steps.ver.outputs.VERSION }}
+      prerelease: ${{ steps.ver.outputs.PRERELEASE }}
+      dry_run:    ${{ steps.ver.outputs.DRY_RUN }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET ${{ env.DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      # ── Resolve the version string ─────────────────────────────────────────
-      - name: Resolve version
-        id: version
+      - name: Resolve & validate version
+        id: ver
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ github.event.inputs.version }}"
+            DRY_RUN="${{ github.event.inputs.dry_run }}"
           else
-            # Strip leading "v" from tag (v1.2.3 → 1.2.3)
-            VERSION="${GITHUB_REF_NAME#v}"
+            VERSION="${GITHUB_REF_NAME#v}"   # strip leading "v"
+            DRY_RUN="false"
           fi
-          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Resolved version: $VERSION"
 
-      - name: Restore dependencies
-        run: dotnet restore ${{ env.PROJECT_PATH }}
+          # Enforce strict semver: 1.2.3 or 1.2.3-suffix
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\.\-]+)?$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Must be semver e.g. 1.2.3 or 1.2.3-beta.1"
+            exit 1
+          fi
 
-      # ── Build with strict warning policy ──────────────────────────────────
-      - name: Build (Release, zero warnings)
+          PRERELEASE="false"
+          [[ "$VERSION" == *"-"* ]] && PRERELEASE="true"
+
+          echo "VERSION=$VERSION"       >> "$GITHUB_OUTPUT"
+          echo "PRERELEASE=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "DRY_RUN=$DRY_RUN"       >> "$GITHUB_OUTPUT"
+
+          echo "✅ Version  : $VERSION"
+          echo "✅ Pre-release: $PRERELEASE"
+          echo "✅ Dry run  : $DRY_RUN"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 2 · Build — zero warnings gate
+  # ──────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build (Release · zero warnings)
         run: |
-          dotnet build ${{ env.PROJECT_PATH }} \
+          dotnet build ${{ env.SOLUTION_PATH }} \
             --no-restore \
             --configuration Release \
-            /p:Version=${{ steps.version.outputs.VERSION }} \
+            /p:Version=${{ needs.validate.outputs.version }} \
             /p:TreatWarningsAsErrors=true \
             /p:WarningLevel=5
 
-      # ── Run tests before publishing ────────────────────────────────────────
-      - name: Test (gate before publish)
+      # Cache build output so later jobs don't rebuild
+      - name: Upload build cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output-${{ needs.validate.outputs.version }}
+          path: |
+            **/bin/Release/
+            **/obj/Release/
+          retention-days: 1
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 3 · Test — gate before any publishing
+  # ──────────────────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [validate, build]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore build cache
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output-${{ needs.validate.outputs.version }}
+
+      - name: Run tests
         run: |
-          dotnet test AutoApi.sln \
+          dotnet test ${{ env.SOLUTION_PATH }} \
             --no-build \
             --configuration Release \
-            /p:Version=${{ steps.version.outputs.VERSION }}
+            --logger "trx;LogFileName=test-results.trx" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
 
-      # ── Pack ───────────────────────────────────────────────────────────────
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Release Test Results
+          path: "TestResults/*.trx"
+          reporter: dotnet-trx
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 4 · Pack — produce .nupkg + .snupkg
+  # ──────────────────────────────────────────────────────────────────────────
+  pack:
+    name: Pack
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore build cache
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output-${{ needs.validate.outputs.version }}
+
       - name: Pack
         run: |
           dotnet pack ${{ env.PROJECT_PATH }} \
             --no-build \
             --configuration Release \
-            /p:Version=${{ steps.version.outputs.VERSION }} \
+            /p:Version=${{ needs.validate.outputs.version }} \
             --include-symbols \
             --output ${{ env.OUTPUT_DIR }}
 
-      # ── List what we built (sanity check) ─────────────────────────────────
       - name: List artifacts
         run: ls -lh ${{ env.OUTPUT_DIR }}
 
-      # ── Upload artifacts to this workflow run ─────────────────────────────
-      - name: Upload artifacts
+      - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
-          name: nuget-release-${{ steps.version.outputs.VERSION }}
+          name: nuget-packages-${{ needs.validate.outputs.version }}
           path: |
             ${{ env.OUTPUT_DIR }}/*.nupkg
             ${{ env.OUTPUT_DIR }}/*.snupkg
+          retention-days: 30
 
-      # ── Push to NuGet.org ─────────────────────────────────────────────────
-      - name: Push to NuGet.org
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 5 · Publish — push to NuGet.org + create GitHub Release
+  #          Skipped on dry_run = true
+  # ──────────────────────────────────────────────────────────────────────────
+  publish:
+    name: Publish to NuGet
+    runs-on: ubuntu-latest
+    needs: [validate, pack]
+    if: ${{ needs.validate.outputs.dry_run != 'true' }}
+    environment: nuget-release          # optional: require manual approval in GitHub Environments
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages-${{ needs.validate.outputs.version }}
+          path: ${{ env.OUTPUT_DIR }}
+
+      - name: Verify NUGET_API_KEY is set
+        run: |
+          if [[ -z "${{ secrets.NUGET_API_KEY }}" ]]; then
+            echo "::error::NUGET_API_KEY secret is not set. Add it at Settings → Secrets → Actions."
+            exit 1
+          fi
+          echo "✅ NUGET_API_KEY is present"
+
+      - name: Push .nupkg to NuGet.org
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
@@ -116,22 +237,40 @@ jobs:
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
-          # Push symbols package separately (snupkg)
+      - name: Push .snupkg (symbols) to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        # snupkg push is best-effort — don't fail the release if it errors
+        continue-on-error: true
+        run: |
           dotnet nuget push "${{ env.OUTPUT_DIR }}/*.snupkg" \
             --api-key "$NUGET_API_KEY" \
             --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate || true   # snupkg push is best-effort
+            --skip-duplicate
 
-      # ── Create GitHub Release ─────────────────────────────────────────────
+      # ── Extract release notes for this version from CHANGELOG.md ──────────
+      - name: Extract changelog entry
+        id: changelog
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md 2>/dev/null || true)
+          if [[ -z "$NOTES" ]]; then
+            NOTES="See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
+          fi
+          # Write to a temp file to safely handle multi-line
+          echo "$NOTES" > /tmp/release_notes.md
+          echo "Extracted release notes:"
+          cat /tmp/release_notes.md
+
       - name: Create GitHub Release
-        if: ${{ github.event_name == 'push' && github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: "AutoApi v${{ steps.version.outputs.VERSION }}"
-          draft: false
-          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
-          generate_release_notes: true
+          tag_name:             ${{ github.event_name == 'push' && github.ref_name || format('v{0}', needs.validate.outputs.version) }}
+          name:                 "AutoApi v${{ needs.validate.outputs.version }}"
+          body_path:            /tmp/release_notes.md
+          draft:                false
+          prerelease:           ${{ needs.validate.outputs.prerelease == 'true' }}
+          make_latest:          ${{ needs.validate.outputs.prerelease == 'false' }}
           files: |
             ${{ env.OUTPUT_DIR }}/*.nupkg
             ${{ env.OUTPUT_DIR }}/*.snupkg
