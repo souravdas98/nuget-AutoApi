@@ -1,0 +1,137 @@
+name: Release to NuGet
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"        # v1.2.3
+      - "v[0-9]+.[0-9]+.[0-9]+-*"      # v1.2.3-beta.1
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version to publish (e.g. 1.2.3 or 1.2.3-beta.1)"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run — build & pack but do NOT push to NuGet"
+        required: false
+        default: "false"
+        type: boolean
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false            # never cancel an in-flight release
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  PROJECT_PATH: "AutoApi/AutoApi.csproj"
+  OUTPUT_DIR: "./artifacts"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  release:
+    name: Pack & Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # needed to create GitHub Releases
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # ── Resolve the version string ─────────────────────────────────────────
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Strip leading "v" from tag (v1.2.3 → 1.2.3)
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
+      # ── Build with strict warning policy ──────────────────────────────────
+      - name: Build (Release, zero warnings)
+        run: |
+          dotnet build ${{ env.PROJECT_PATH }} \
+            --no-restore \
+            --configuration Release \
+            /p:Version=${{ steps.version.outputs.VERSION }} \
+            /p:TreatWarningsAsErrors=true \
+            /p:WarningLevel=5
+
+      # ── Run tests before publishing ────────────────────────────────────────
+      - name: Test (gate before publish)
+        run: |
+          dotnet test AutoApi.sln \
+            --no-build \
+            --configuration Release \
+            /p:Version=${{ steps.version.outputs.VERSION }}
+
+      # ── Pack ───────────────────────────────────────────────────────────────
+      - name: Pack
+        run: |
+          dotnet pack ${{ env.PROJECT_PATH }} \
+            --no-build \
+            --configuration Release \
+            /p:Version=${{ steps.version.outputs.VERSION }} \
+            --include-symbols \
+            --output ${{ env.OUTPUT_DIR }}
+
+      # ── List what we built (sanity check) ─────────────────────────────────
+      - name: List artifacts
+        run: ls -lh ${{ env.OUTPUT_DIR }}
+
+      # ── Upload artifacts to this workflow run ─────────────────────────────
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-release-${{ steps.version.outputs.VERSION }}
+          path: |
+            ${{ env.OUTPUT_DIR }}/*.nupkg
+            ${{ env.OUTPUT_DIR }}/*.snupkg
+
+      # ── Push to NuGet.org ─────────────────────────────────────────────────
+      - name: Push to NuGet.org
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push "${{ env.OUTPUT_DIR }}/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+          # Push symbols package separately (snupkg)
+          dotnet nuget push "${{ env.OUTPUT_DIR }}/*.snupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate || true   # snupkg push is best-effort
+
+      # ── Create GitHub Release ─────────────────────────────────────────────
+      - name: Create GitHub Release
+        if: ${{ github.event_name == 'push' && github.event.inputs.dry_run != 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "AutoApi v${{ steps.version.outputs.VERSION }}"
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          generate_release_notes: true
+          files: |
+            ${{ env.OUTPUT_DIR }}/*.nupkg
+            ${{ env.OUTPUT_DIR }}/*.snupkg

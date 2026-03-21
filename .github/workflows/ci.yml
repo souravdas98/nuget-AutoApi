@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop", "feature/**", "fix/**"]
+  pull_request:
+    branches: ["main", "develop"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history for versioning tools
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore AutoApi.sln
+
+      # ── Build with TreatWarningsAsErrors so zero warnings === zero errors ──
+      - name: Build (no warnings, no errors)
+        run: |
+          dotnet build AutoApi.sln \
+            --no-restore \
+            --configuration Release \
+            /p:TreatWarningsAsErrors=true \
+            /p:WarningLevel=5
+
+      # ── Run all test projects ──────────────────────────────────────────────
+      - name: Test (with coverage)
+        run: |
+          dotnet test AutoApi.sln \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=test-results.trx" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      # ── Publish test results ───────────────────────────────────────────────
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: "TestResults/*.trx"
+          reporter: dotnet-trx
+
+      # ── Upload coverage report ─────────────────────────────────────────────
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          directory: ./TestResults
+          files: "**/coverage.cobertura.xml"
+          fail_ci_if_error: false
+
+      # ── Verify pack succeeds (dry-run, no push) ───────────────────────────
+      - name: Verify NuGet pack
+        run: |
+          dotnet pack AutoApi/AutoApi.csproj \
+            --no-build \
+            --configuration Release \
+            --output ./artifacts
+
+      - name: Upload NuGet artifact (CI preview)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-ci-${{ github.run_number }}
+          path: ./artifacts/*.nupkg
+          retention-days: 7

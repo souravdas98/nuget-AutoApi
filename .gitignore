@@ -1,0 +1,30 @@
+## Build outputs
+bin/
+obj/
+artifacts/
+TestResults/
+
+## NuGet packages
+*.nupkg
+*.snupkg
+*.nuspec
+
+## VS / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.DS_Store
+
+## dotnet tool manifest
+.config/dotnet-tools.json
+
+## Coverage
+coverage*/
+lcov.info
+*.cobertura.xml
+
+## Logs
+*.log

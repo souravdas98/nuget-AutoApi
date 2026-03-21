@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- NuGet Package Identity -->
+    <PackageId>AutoApi</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Sourav</Authors>
+    <Company>Sourav</Company>
+    <Description>
+      Zero-code CRUD API generation for ASP.NET Core.
+      Decorate your model classes with [AutoApi] and get full GET / POST / PUT / DELETE
+      REST endpoints registered automatically — no controllers required.
+      Comes with a built-in in-memory store for quick prototyping and an
+      EFCoreAutoApiStore&lt;T, TContext&gt; for production use with any DbContext.
+    </Description>
+    <PackageTags>aspnetcore;api;crud;minimal-api;efcore;codegen;rest;auto-api;no-controller</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Include XML doc comments so IntelliSense works for consumers -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Suppress "missing XML doc" warnings for internal/private members -->
+    <!-- AD0001: ASP.NET Core route-handler analyzer NRE on lambdas in libraries (analyzer bug, not ours) -->
+    <NoWarn>$(NoWarn);CS1591;AD0001</NoWarn>
+
+    <IsPackable>true</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+
+    <!-- Symbol package for debuggability -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ASP.NET Core shared framework — includes DI, Routing, Http, Builder, etc. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- EF Core: required by EFCoreAutoApiStore<T, TContext> -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Bundle README into the .nupkg so nuget.org displays it -->
+    <None Include="..\README.md" Pack="true" PackagePath="\" Condition="Exists('..\README.md')" />
+  </ItemGroup>
+
+</Project>
