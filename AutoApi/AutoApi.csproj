@@ -7,7 +7,7 @@
 
     <!-- NuGet Package Identity -->
     <PackageId>ApiImplementer</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.0.0.1</Version>
     <Authors>Sourav</Authors>
     <Company>Sourav</Company>
     <Description>
