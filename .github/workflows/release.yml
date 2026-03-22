@@ -1,11 +1,10 @@
 name: Release to NuGet
 
-# ── Triggers ─────────────────────────────────────────────────────────────────
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"       # stable      → v1.2.3
-      - "v[0-9]+.[0-9]+.[0-9]+-*"     # pre-release → v1.2.3-beta.1
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
 
   workflow_dispatch:
     inputs:
@@ -14,36 +13,42 @@ on:
         required: true
         type: string
       dry_run:
-        description: "Dry run — build & pack but do NOT push to NuGet"
+        description: "Dry run - build & pack but do NOT push to NuGet"
         required: false
         default: "false"
         type: boolean
 
-# ── Never cancel an in-flight release ────────────────────────────────────────
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progr  cancel-in-progr  cancel-in-progr  cancel-in-progr  cancel-in-progr  cancel-in-p��  cancel-in-progr  ca��────────────────────────────
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
-# ── Shared env ──────────────────────────�# ──────�# ── Shared env ─────────────�─────────
 env:
-  DOTNET_NOLOGO:                    true
-  DOTNET_CLI_TELEMETRY_OPTOUT:      true
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   SOLUTION_PATH: "AutoApi.sln"
-  PROJECT_PATH:  "AutoApi/AutoApi.csproj"
-  OUTPUT_DIR:    "./artifacts"
+  PROJECT_PATH: "AutoApi/AutoApi.csproj"
+  OUTPUT_DIR: "./artifacts"
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
-# ═══════# ═══════��# ═══════# ═══════# ═══════��# ═══════# ═══════# ═══════��# ═══════# ══════
 jobs:
 
-  # ─  # ─  # ─  # ─  # ─  # ��  # ─  # ─  # ─  # ─  # ─  # ��  # ─  # ─  # ─  # ─  # ─  # ��  # ─  # ─  # ─  # ─  # ─  # ��  # ─  # ─  # ─  # ─  # ─  # ��  # ─  # ─  # ─  # ─  # ─  # — resolve & enforce strict sem  # ─  # ─  # ─  # ─  # ─  # ��  # ─  # ─  # ─  # ─  # ─  # ��  # ─  # ─  # ─  # ─  # ─  # ��  # ─  # ─  # ─  # ─  # ─  # ��  # ─  # ─  # ─  # ─  # ─  # �──  # ─  # ─  # ─  # ─  # ─e: Val  # ─  # ─  # ─  # ─  # ─  est
-  # ─  # ─  # ─  # ─  # ─  # ps.  # ─  # ─  # ─  # ─ pr  # ─  # ─  # ─  # ─  # ─  # pSE  # ─  # ─  # ─  {{ steps.ver.outputs.DRY_RUN }}
+  # ---------------------------------------------------------------------------
+  # JOB 1 - Validate: resolve & enforce strict semver
+  # -------------------------------------------  # ----------------------------
+  validate:
+    name: Vali  te version
+    runs-on: ubuntu-latest
+
+    outputs:
+      version:    ${{ steps.ver.outputs.VERSION }}
+      prerelease: ${{ steps.ver.      prerelease: ${{ steps.ver.      prerelease: ${{ steps.ver.Y_RUN }}
 
     steps:
-      - name: Resolve & validate semver
+                        v             r
         id: ver
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -54,84 +59,33 @@ jobs:
             DRY_RUN="false"
           fi
 
-          # Strict semver: 1.2.3 or 1.2.3-suffix.1
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\.\-]+)?$ ]]; then
+          if ! [[ "$VERSION" =~ ^[0-          if ! [[ "$VERSION" Z0-9\.\-]+)?$ ]]; then
             echo "::error::Invalid version '$VERSION'. Must be semver e.g. 1.2.3 or 1.2.3-beta.1"
-            exit 1
-          fi
-
-          PRERELEASE="false"
-          [[ "$VERSION" == *"-"* ]] && PRERELEASE="true"
-
-          echo "VERSION=$VERSION"       >> "$GITHUB_OUTPUT"
-          echo "PRERELEASE=$PRERELEASE" >> "$GITHUB_OUTPUT"
-          echo "DRY_RUN=$DRY_RUN"       >> "$GITHUB_OUTPUT"
-
-          echo "✅ Version     : $VERSION"
-          echo "✅ Pre-release : $PRERELEASE"
-          echo "✅ Dry ru         DR          echo "✅ Dry ru         DR ��          echo�          ech�          echo "✅ Dry ru         DR          echo "✅ Dry�────�          echo "✅ Dry ru         DR          echo "��───────────
-  # JOB 2 · Security — block release if vulnerable dependencies detected
-  # ────────────────────────────────────────────────────────────�  # ──────────────────────────────� r  # ────�test
-    needs:     needs:     needs:     n- name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
+            ex            ex            ex            ex            ex            ex        "*            ex            ex            ex          ERSION"       >> "$GITHUB_OUTPUT"
+          echo "PRERELEASE=$PRERELEASE" >> "$GIT          "
+          echo "PRERELE=$DR          echo "PRERELE=$OUT          e     echo "Version     : $VERSION"
+          echo "Pr          echo "Pr          echo "Pr          echo "Pr          echo "Pr          echo "Pr          ech---         ------------------------------
+  # JOB 2 - Security: block release if vul  # JOB 2 - Security: block release if vul  # JOB 2 - Security: block rel------------------------------------
+  security:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: vali    needs: vali    needs: vali    needs:       needs: vali    needs: t@    needs:  name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0.x"
-
-      - name: Re      - name: Re      - name: Re      - name: Re      - }}
-
-      - name: Scan for vulnerable packages
+          dotnet-versio          dotnet-versio          dotnet-versio          dotnet-versio          dotnet-versio    name: Scan for vulnerable packages
         run: |
           dotnet list ${{ env.SOLUTION_PATH }} package --vulnerable --include-transitive 2>&1 | tee vuln-report.txt
-          if grep -q "has the following vulnerable packages" vuln-report.txt; then
-            echo "::error::Vulnerable NuGet packages detected — release blocked."
-            exit 1
-          fi
-          echo "✅ No vulnerable packages found."
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # JOB 3 · Build — zero-warnings gate across all target frameworks
-  # ──────�  # ──────�  # ──────�  # ─�  # ───────────────────────────────────────────────�  # ──────�  # ──────�  # ──────�  # e, security]
+          if grep -q "has the following vulnerable packages" vuln-report.txt          if grep -q "has the following vulnerable packages" vuln-report.txt          if grep -q "h            if grep -q "has the following vulnerable packages" vuln-report.txt          if grep -q "has the following vulnerable packages" vuln-report.txt          il          if grep -q "has the following vulnerable packages" vuln-report.txt          if grep -q "has the following vulnerable packages" vuln-report.tBu         uns          if grep -q "has the followite, security]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET (all TFMs)
-        uses: actio        uses: actio        uses: actio        uses: actio        uses: actio               uses: actio        uses: actio        uses: actio        uses: actio  ses: a        uses: act          use          path: ${{ env.NUGET_PACKAGES }}
-          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            nuget-${{ runner.os }}-release-
-            nuget-${{ runner.os }}-
-
-      - name: Restore
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
-
-      - name: Build (Release · zero warnings · versioned)
-        run: |
-          dotnet build ${{ env.SOLUTION_PATH }} \
-            --no-restore \
-            --configuration Release \
-            /p:Version=${{ needs.validate.outputs.version }} \
-            /p:TreatWarningsAsErrors=true \
-            /p:WarningLevel=5 \
-            /p:ContinuousIntegrationBuild=true
-
-      # Cache build output for the pack job (avoids a second full       # Cache build oUploa      # Cache bu       uses: actions/upload-artifact@v4
-        with:
-          name: build-output-${{ needs.validate.outputs.version }}
-          path: |
-            **/bin/Release/
-            **/obj/Release/
-          retention-days: 1
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # JOB 4 · Pack — produce .nupkg + .snupkg and verify contents
-  # ─────────────────────────────────────────────────────────────────────  # ───────────────� ubuntu-latest
+                                                                                                                     .N                                    se            4
+                                                                                                                     .N                                 ns                  with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.ostegrationBuild          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-r            key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release-${{ hashFiles('**/*          key: nuget-${{ runner.os }}-release- # JOB 4 - Pack: produce .nupkg + .snupkg and verify contents
+  # ---------------------------------------------------------------------------
+  pack:
+    name: Pack
+    runs-on: ubuntu-latest
     needs: [validate, build]
 
     steps:
@@ -149,34 +103,35 @@ jobs:
       - name: Download build output
         uses: actions/download-artifact@v4
         with:
-          name:          name:       s.validate.outputs.version }}
+          name: build-output-${{ needs.validate.outputs.version }}
 
       - name: Pack
-        run:         run:         run:         run:         run:         run:         run:         run:         run:         run:         run:         run:         run:         run:         run:         run:         run:         d=true \
+        run: |
+          dotnet pack ${{ env.PROJECT_PATH }} \
+            --no-build \
+            --configuration Release \
+            /p:Version=${{ needs.validate.outputs.version }} \
+            /p:ContinuousIntegrationBuild=true \
             --include-symbols \
             --output ${{ env.OUTPUT_DIR }}
 
       - name: Verify package contents
         run: |
-          echo "── Artifacts ──────────────────────────────────────"
+          echo "Artifacts:"
           ls -lh ${{ env.OUTPUT_DIR }}
-          echo ""
 
-          NUPKG=$(ls ${{ env.OUTPUT_DIR          g 2>/dev/null | head -1)
+          NUPKG=$(ls ${{ env.OUTPUT_DIR }}/*.nupkg 2>/dev/null | head -1)
           if [[ -z "$NUPKG" ]]; then
             echo "::error::No .nupkg file produced."
             exit 1
           fi
-
-          # Verify expected PackageId inside the nupkg
-          unzip -p          unzip -p " 2>/dev/null | grep -i "packageId\|id\|version" || true
-          echo "✅ .nupkg verified: $NUPKG"
+          echo "nupkg verified: $NUPKG"
 
           SNUPKG=$(ls ${{ env.OUTPUT_DIR }}/*.snupkg 2>/dev/null | head -1)
           if [[ -n "$SNUPKG" ]]; then
-            echo "✅ .snupkg present: $SNUPKG"
+            echo "snupkg present: $SNUPKG"
           else
-            echo "⚠️  No .snupkg found — symbols will not be uploaded."
+            echo "Warning: no .snupkg found - symbols will not be uploaded."
           fi
 
       - name: Upload packages artifact
@@ -188,60 +143,80 @@ jobs:
             ${{ env.OUTPUT_DIR }}/*.snupkg
           retention-days: 30
 
-  # ─────────────────────────────────────────────�  # ───────────  # ───────────────�#   # ───�h — push to NuGet.org + create GitHub Release
+  # ---------------------------------------------------------------------------
+  # JOB 5 - Publish: push to NuGet.org + create GitHub Release
   #          Requires manual approval via the "nuget-release" environment.
   #          Skipped entirely when dry_run = true.
-  # ───────────�  # ───────────�  # ────────────────────────────────────────────�  # ───────────�  # ───────────    needs: [validate, pack]
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Publish to NuGet
+    runs-on: ubuntu-latest
+    needs: [validate, pack]
     if: ${{ needs.validate.outputs.dry_run != 'true' }}
 
-    # ── Require a human to approve from GitHub Environments ──────────────
-                                            on                                         ub                           - n                                            on                                         ub                           - n                                            on                                         ub                           - n       ith:
-          name: nuget-packages-${{ needs.val          name: nuget-packages-${{ needs.val          name: nuget-packageam          name: nuget-packages-${{ needs.val     : |
+    environment: nuget-release
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages-${{ needs.validate.outputs.version }}
+          path: ${{ env.OUTPUT_DIR }}
+
+      - name: Verify NUGET_API_KEY is configured
+        run: |
           if [[ -z "${{ secrets.NUGET_API_KEY }}" ]]; then
             echo "::error::NUGET_API_KEY secret is missing."
-            echo "::error::Go to Settings → Secrets → Actions and add NUGET_API_KEY."
+            echo "::error::Go to Settings -> Secrets -> Actions and add NUGET_API_KEY."
             exit 1
           fi
-          echo "✅ NUGET_API_KEY is set."
+          echo "NUGET_API_KEY is set."
 
-      # ── Push .nupkg (hard      # ── Push .nupkg (hard      # ── Push .n��──────
       - name: Push .nupkg to NuGet.org
         env:
-          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: rg          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_API_KEY: ${{ secrets.N          NUGET_APupkg" \
-            --api-key "$NUGET_API_KEY" \
-                                                                       --                                                                       --               �───────────                                               id: changelog
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          VERSION="${{ needs.validate.outputs.version }}"
-          NOTES=$(awk \
-            "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" \
-            CHANGELOG.md 2>/dev/null || true)
+          dotnet nuget push "${{ env.OUTPUT_DIR }}/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
 
+      - name: Push .snupkg symbols to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        continue-on-error: true
+        run: |
+          dotnet nuget push "${{ env.          dotnet nuget push "${{ env.    ap        NUGET_          dotnet nuget push "${{ env.          dotnet nuget push "$n           dotnet nuget push "${{ env   - name: Extract changelog entry
+        id: changelog
+        ru        ru        ru        ru        ru        ru     ion         ru        ru        ru        ru        ru        rxt} found && /^## \[/{exit} found{print}" CHANGELOG.md 2>/dev/null || true)
           if [[ -z "$NOTES" ]]; then
             NOTES="See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for release notes."
           fi
+          printf '%s' "$NOTES"          printf '%s' "$NOTES"          printf '%s' "$NOTES"
 
-          printf '%s' "$NOTES" > /tmp/release_notes.md
-          echo "── Release notes preview ───────────────────────────"
-          cat /tmp/release_notes.md
-
-      # ── Create GitHub Release with .nupkg/.snupkg attached ───────────      # ── Create GitHub Re Release
-                                                                                                                                                                                                                                                               utoApi v${{ needs                                                        p/                           draft:       false
-          prerelease:  ${{ needs.validate.outputs.prerelease == 'true' }}
-          make_latest: ${{ needs.valid          make_latest: ${{ needs.va}
-          files: |
-            ${{ env.OUTPUT_DIR }}/*.nupkg
+                                            uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || format('v{0}', needs.vali          tag_name: ${{ github.event_name == 'pushv${{          tag_name: ${{ githion }}"
+          b          b          b          b          b          b          b          b          b          b          b          b          b          b          b          b          b          b          b          b          b          b             b      R }}/*.nupkg
             ${{ env.OUTPUT_DIR }}/*.snupkg
 
-      # ── Post-p      # ─fic      # ── Post-p      # ─fic      # ── Pos- name: Verify package on NuGet.org
+      - name: Verify package on NuGet.org
         if: ${{ needs.validate.outputs.prerelease == 'false' }}
         run: |
-          VERSI          VERSI          VERSI    sion }}"
-          echo "Waiting 30s for NuGet indexing..."
-          sleep 30
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://api.nuget.org/v3-flatcontainer/autoapi/$VERSION/autoapi.$VERSION.nupkg")
+          VERSION="${{ needs.val          VERSION="${{ needs.val    e          VERSION="${{ needs.val          VERSION="${{ needs.val    e          VERSION="${{ needs.val          VERSION="${{         "https://api.nuget.org/v3-flatcontainer/autoapi/$VERSION/autoapi.$VERSION.nupkg")
           if [[ "$STATUS" == "200" ]]; then
-            echo "✅ Package AutoApi $VERSION is live on NuGet.org"
+            echo "Package AutoApi $VERSION is live on NuGet.org"
           else
-            echo "⚠️  Package not yet indexed (HTTP $STATUS). NuGet may take a few minutes."
+            echo "Warning: package not yet indexed (HTTP $STATUS). NuGet may take a few minutes."
           fi
