@@ -16,10 +16,12 @@ internal static class AutoApiScanner
     )
     {
         return assemblies
+            .Distinct()
             .SelectMany(SafeGetTypes)
             .Select(t => (Type: t, Attr: t.GetCustomAttribute<AutoApiAttribute>()))
             .Where(x => x.Attr is not null)
-            .Select(x => (x.Type, x.Attr!));
+            .Select(x => (x.Type, x.Attr!))
+            .DistinctBy(x => x.Type);
     }
 
     /// <summary>

@@ -311,7 +311,7 @@ jobs:
         run: |
           VERSION="${{ needs.validate.outputs.version }}"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://api.nuget.org/v3-flatcontainer/autoapi/$VERSION/autoapi.$VERSION.nupkg")
+            "https://api.nuget.org/v3-flatcontainer/apiimplementer/$VERSION/apiimplementer.$VERSION.nupkg")
           if [[ "$STATUS" == "200" ]]; then
             echo "Package AutoApi $VERSION is live on NuGet.org"
           else
