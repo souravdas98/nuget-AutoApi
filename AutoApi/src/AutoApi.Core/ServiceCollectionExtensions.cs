@@ -83,7 +83,7 @@ public static class WebApplicationExtensions
             var mapMethod = typeof(AutoApi.Core.Internal.EndpointBuilder)
                 .GetMethod(
                     nameof(AutoApi.Core.Internal.EndpointBuilder.Map),
-                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public
                 )!
                 .MakeGenericMethod(type);
 

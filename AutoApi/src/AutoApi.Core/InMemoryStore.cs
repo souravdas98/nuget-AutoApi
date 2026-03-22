@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoApi.Core.Abstractions;
 
@@ -17,7 +18,7 @@ internal class InMemoryStore<T> : IAutoApiStore<T>
     where T : class
 {
     private readonly ConcurrentDictionary<int, T> _store = new();
-    private int _nextId = 1;
+    private int _nextId = 0;
 
     private static PropertyInfo IdProperty =>
         typeof(T).GetProperty("Id", typeof(int))
@@ -37,7 +38,7 @@ internal class InMemoryStore<T> : IAutoApiStore<T>
 
     public Task<T> CreateAsync(T item)
     {
-        var id = _nextId++;
+        var id = Interlocked.Increment(ref _nextId);
         SetId(item, id);
         _store[id] = item;
         return Task.FromResult(item);
