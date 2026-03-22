@@ -187,6 +187,9 @@ jobs:
         with:
           name: build-output-${{ needs.validate.outputs.version }}
 
+      - name: Restore
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
       - name: Pack
         run: |
           dotnet pack ${{ env.PROJECT_PATH }} \
